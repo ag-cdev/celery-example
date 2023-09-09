@@ -1,7 +1,8 @@
 from celery import Celery
 from celery.contrib.abortable import AbortableTask
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
 from time import sleep
+from celery.result import AsyncResult
 
 def make_celery(app):
     celery = Celery(app.name)
@@ -26,21 +27,34 @@ def create_app():
 
     @celery.task(bind=True, base=AbortableTask)
     def count(self):
-        for i in range(10):
-
-            print("Hello World:",i)
+        for i in range(40):
+            self.update_state(state='PROGRESS', meta={'current': i, 'total': 40})
+            print("Hello World:", i)
             sleep(1)
         return 'DONE!' 
 
     @app.route('/start')
     def start():
-        task = count.delay()
-        return render_template('start.html', task=task)
-
+        task = count.apply_async()
+        return render_template('start.html', task_id=task.id)
 
     @app.route('/cancel/<task_id>')
     def cancel(task_id):
         celery.control.revoke(task_id, terminate=True)  # Use the celery instance to access control
         return 'Canceled!'
+    
+    @app.route('/check_task/<task_id>')
+    def check_task(task_id):
+        task = AsyncResult(task_id, app=celery)
+        if task.state == 'PROGRESS':
+            progress = task.info.get('current', 0)
+            total = task.info.get('total', 40)
+            return jsonify({'status': 'PROGRESS', 'progress': progress, 'total': total})
+        elif task.state == 'SUCCESS':
+            return jsonify({'status': 'SUCCESS'})
+        elif task.state == 'FAILURE':
+            return jsonify({'status': 'FAILURE'})
+        else:
+            return jsonify({'status': 'PENDING'})
 
     return app, celery
