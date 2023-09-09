@@ -27,7 +27,8 @@ def create_app():
     @celery.task(bind=True, base=AbortableTask)
     def count(self):
         for i in range(10):
-            print("Hello World" + i)
+
+            print("Hello World:",i)
             sleep(1)
         return 'DONE!' 
 
