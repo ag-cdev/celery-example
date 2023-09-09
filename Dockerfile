@@ -5,6 +5,6 @@ ENV PYTHONDONTWRITEBYTECODE 1
 
 # RUN apt-get update && apt-get install -y build-essentials
 
-RUN pip install flask celery redis eventlet
+RUN pip install flask celery redis gevent
 
 WORKDIR /app
