@@ -1,17 +1,18 @@
 from celery import Celery
-from celery.contrib.abortable import AbortableTask
 from flask import Flask, render_template, jsonify
-from time import sleep
 from celery.result import AsyncResult
+from celery import Task
+
+from time import sleep
 
 def make_celery(app):
     celery = Celery(app.name)
     celery.conf.update(app.config["CELERY_CONFIG"])
 
-    class ContextTask(celery.Task):
+    class ContextTask(Task):  # Change CeleryTask to Task
         def __call__(self, *args, **kwargs):
             with app.app_context():
-                return self.run(*args, **kwargs)
+                return super(ContextTask, self).__call__(*args, **kwargs)
 
     celery.Task = ContextTask
     return celery
@@ -25,7 +26,7 @@ def create_app():
 
     celery = make_celery(app)
 
-    @celery.task(bind=True, base=AbortableTask)
+    @celery.task(bind=True)
     def count(self):
         for i in range(40):
             self.update_state(state='PROGRESS', meta={'current': i, 'total': 40})
